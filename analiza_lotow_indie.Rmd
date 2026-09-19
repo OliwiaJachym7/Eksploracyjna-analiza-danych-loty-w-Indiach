@@ -1,0 +1,222 @@
+---
+title: "Eksploracyjna analiza danych lotów w Indiach"
+author: "Oliwia Jachym "
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Wprowadzenie
+
+Jako osoba interesująca się nie tylko podróżami, ale również lotnictwem,
+postanowiłam podjąć się analizy EDA linii lotniczych. Zestaw danych dotyczy
+lotów indyjskich linii lotniczych. Zestaw danych zawiera **300 153 rekordy oraz 12 kolumn**.
+Opisuje on loty krajowe w Indiach, uwzględniając parametry biletów oraz samej podróży.
+
+## Zmienne w zbiorze
+
+- **airline** – nazwa linii lotniczej  
+- **flight** – kod lotu  
+- **source_city** – miasto wylotu  
+- **departure_time** – pora dnia wylotu  
+- **stops** – liczba przesiadek  
+- **arrival_time** – pora dnia przylotu  
+- **destination_city** – miasto docelowe  
+- **class** – klasa podróży (Economy, Business)  
+- **duration** – czas trwania lotu (godziny)  
+- **days_left** – liczba dni do wylotu w momencie zakupu  
+- **price** – cena biletu  
+
+## Biblioteki
+
+```{r}
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+```
+
+## Wczytanie danych
+
+```{r}
+ds <- read.csv("airlines_flights_data (3).csv")
+```
+
+## Przegląd danych
+
+```{r}
+head(ds)
+str(ds)
+summary(ds)
+```
+
+## 1. Statystyki cen w podziale na klasy
+
+```{r}
+pyt1 <- ds %>%
+  group_by(class) %>%
+  summarise(
+    Srednia = mean(price),
+    Mediana = median(price),
+    Min = min(price),
+    Max = max(price)
+  )
+pyt1
+```
+
+```{r}
+ggplot(ds, aes(x = class, y = price, fill = class)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  labs(title = "Średnia cena biletu w zależności od klasy",
+       x = "Klasa podróży", 
+       y = "Średnia cena (INR)") +
+  theme_minimal()
+```
+
+**Wniosek:**  
+Średnia cena klasy Business (~52 540 INR) jest wielokrotnie wyższa niż klasy Economy (~6 572 INR).
+
+## 2. Porównanie cen między liniami lotniczymi
+
+```{r}
+pyt2 <- ds %>%
+  group_by(airline) %>%
+  summarise(
+    Srednia = mean(price),
+    Mediana = median(price),
+    Odchylenie_Std = sd(price)
+  ) %>%
+  arrange(desc(Srednia))
+pyt2
+```
+
+```{r}
+ggplot(ds, aes(x = reorder(airline, -price, FUN = mean), y = price, fill = airline)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  labs(title = "Ranking linii lotniczych wg średniej ceny",
+       x = "Linia lotnicza", 
+       y = "Średnia cena (INR)") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+## 3. Miasto wylotu a cena
+
+```{r}
+pyt3 <- ds %>%
+  group_by(source_city) %>%
+  summarise(
+    Srednia = mean(price),
+    Liczba_Lotow = n()
+  ) %>%
+  arrange(desc(Srednia))
+pyt3
+```
+
+```{r}
+ggplot(ds, aes(x = reorder(source_city, -price, FUN = mean), y = price, fill = source_city)) +
+  geom_bar(stat = "summary", fun = "mean") +
+  labs(title = "Średnia cena wg miasta wylotu",
+       x = "Miasto wylotu", 
+       y = "Średnia cena (INR)") +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+## 4. Średni czas trwania lotów
+
+```{r}
+pyt4 <- ds %>%
+  group_by(airline) %>%
+  summarise(Srednia_Czas = mean(duration))
+pyt4
+```
+
+```{r}
+ggplot(pyt4, aes(x = airline, y = Srednia_Czas)) +
+  geom_col() +
+  theme_minimal() +
+  labs(title = "Średni czas trwania lotów wg linii",
+       x = "Linia",
+       y = "Czas (h)")
+```
+
+## 5. Cena a liczba dni do wylotu
+
+```{r}
+ggplot(ds, aes(x = days_left, y = price, color = class)) +
+  geom_line(stat = "summary", fun = "mean") +
+  theme_minimal() +
+  labs(title = "Cena biletu vs dni do wylotu",
+       x = "Dni do wylotu",
+       y = "Średnia cena")
+```
+
+## 6. Liczba przesiadek a cena
+
+```{r}
+ds$stops <- factor(ds$stops, levels = c("zero", "one", "two_or_more"))
+
+ggplot(ds, aes(x = stops, y = price, fill = class)) +
+  geom_boxplot() +
+  theme_minimal() +
+  labs(title = "Liczba przesiadek a cena",
+       x = "Przesiadki",
+       y = "Cena")
+```
+
+## 7. Pora dnia wylotu a cena
+
+```{r}
+ggplot(ds, aes(departure_time, price, fill = departure_time)) +
+  geom_boxplot() +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),
+        legend.position = "none") +
+  labs(title = "Cena biletu a pora dnia wylotu",
+       x = "Pora dnia",
+       y = "Cena")
+```
+
+## 8. Rozkład cen biletów
+
+```{r}
+ggplot(ds, aes(x = price, fill = class)) +
+  geom_histogram(bins = 50, alpha = 0.7, position = "identity") +
+  theme_minimal() +
+  labs(title = "Rozkład cen biletów",
+       x = "Cena",
+       y = "Liczebność")
+```
+
+## 9. Czas trwania lotu a cena
+
+```{r}
+set.seed(42)
+ds_sample <- ds %>% sample_n(2000)
+
+ggplot(ds_sample, aes(x = duration, y = price, color = class)) +
+  geom_point(alpha = 0.5) +
+  theme_minimal() +
+  labs(title = "Czas trwania a cena (próbka)",
+       x = "Czas trwania (h)",
+       y = "Cena")
+```
+
+## 10. Rozkład czasu trwania lotów
+
+```{r}
+ggplot(ds, aes(x = duration)) +
+  geom_histogram(binwidth = 1, fill = "pink", color = "white") +
+  theme_minimal() +
+  labs(title = "Rozkład czasu trwania lotów",
+       x = "Czas (godziny)",
+       y = "Liczba lotów")
+```
+
+## Podsumowanie
+
+Analiza EDA ujawnia silne zróżnicowanie cenowe rynku lotniczego w Indiach.
+Najważniejszym czynnikiem różnicującym ceny jest **klasa podróży**.
+Znaczenie mają również linia lotnicza, moment zakupu biletu, pora dnia oraz liczba przesiadek.
